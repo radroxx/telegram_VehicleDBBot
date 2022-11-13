@@ -95,3 +95,37 @@ def get_last_update(vehicle, chat_id):
             return int( diff/86400 )
 
     return None
+
+
+def search_by_plate(contains, limit = 10):
+
+    if len(contains) < 1:
+        return []
+
+    expression = ""
+    attribures = {}
+
+    index = 0
+    for val in contains:
+        attribures[':v' + str(index) ] = {'S': val}
+        if index > 0:
+            expression += " AND "
+        expression += "contains(#name, :v" + str(index) + ")"
+        index += 1
+
+    data = db.scan(
+        TableName = table_name,
+        FilterExpression = expression,
+        ExpressionAttributeNames = {'#name': 'plate'},
+        ExpressionAttributeValues = attribures
+    )
+
+    r = []
+    if data['Count'] > 0:
+        for item in data['Items']:
+            if limit <= 0:
+                break
+            limit -= 1
+            r.append(item)
+
+    return r

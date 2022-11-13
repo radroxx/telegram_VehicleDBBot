@@ -200,4 +200,15 @@ def lambda_handler(event, context):
         lambda_check_image(body['message'], silent = False, verbose = False)
         return {'statusCode': 200, 'body': 'True'}
 
+    # only private chat
+    if body['message']['chat']['id'] > 0:
+        # search
+        if 'text' in body['message'] and body['message']['text'].startswith('/search'):
+            message = ""
+            for item in db.search_by_plate( body['message']['text'].split(" ")[1:] ):
+                message += item['plate']['S'] + "\n"
+            if len(message) > 0:
+                return lambda_reply_and_exit(message, body)
+            return {'statusCode': 200, 'body': 'True'}
+
     return {'statusCode': 200, 'body': 'True'}
