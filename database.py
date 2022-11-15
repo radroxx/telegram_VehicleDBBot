@@ -80,7 +80,7 @@ def update_last_found(vehicle, chat_id):
         vehicle['last_found']['L'].append({
             'M': {
                 'chat_id': {'N': str(chat_id)},
-                'timestamp': {'N': str(time.time() )}
+                'timestamp': {'N': str(time.time() + 1800)}
             }
         })
 
@@ -89,9 +89,8 @@ def get_last_update(vehicle, chat_id):
     for c in vehicle['last_found']['L']:
         if c['M']['chat_id']['N'] == str(chat_id):
             diff = time.time() - float(c['M']['timestamp']['N'])
-            #if diff < 0:
-            #    return None
-            
+            if diff < 0:
+                return None
             return int( diff/86400 )
 
     return None

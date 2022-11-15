@@ -54,7 +54,6 @@ def telegram_get_file(file_id):
         'https://api.telegram.org/bot' + os.getenv('TELEGRAM_BOT_API') + '/getFile',
         {'file_id': file_id}
     )
-    
     if status == 200 and body is not None:
         return "https://api.telegram.org/file/bot" + os.getenv('TELEGRAM_BOT_API') + "/" + body['result']['file_path']
 
@@ -93,6 +92,7 @@ def platerecognizer_plate_reader(file_path):
     )
     
     if status == 201 and body is not None:
+        print(body)
         return body
 
     return None
@@ -122,6 +122,9 @@ def lambda_check_image(message, force = False, silent = False, verbose = True):
             return
     
         for car in plate_data['results']:
+            # отсеиваем то что явно не похоже на автомобильный номер
+            if car['dscore'] < 0.6:
+                continue
             plate = "[{}] {}".format(car['region']['code'], car['plate']).upper()
             vehicles.append( db.get_vehicle(plate) )
 
@@ -149,10 +152,10 @@ def lambda_check_image(message, force = False, silent = False, verbose = True):
 
 
 def lambda_handler(event, context):
-    
+
     if 'headers' not in event:
         return {'statusCode': 200, 'body': 'True'}
-        
+
     if 'Content-Type' not in event['headers']:
         return {'statusCode': 200, 'body': 'True'}
 
@@ -163,26 +166,39 @@ def lambda_handler(event, context):
          return {'statusCode': 200, 'body': 'True'}
 
     body = json.loads(event['body'])
-    
+
     if 'message' not in body:
         return {'statusCode': 200, 'body': 'True'}
 
     # /images
     if 'text' in body['message'] and body['message']['text'].startswith('/images'):
-        plate = body['message']['text'][8:]
+        plate = body['message']['text'][8:].strip().upper()
         if len(plate) == 0:
             return lambda_reply_and_exit('Укажите номер', body)
         if not db.is_exist(plate):
             return lambda_reply_and_exit('Такой номер не найден', body)
 
+        sent_images = set()
         for img in db.get_vehicle(plate)['images']['L']:
-            telegram_send_photo(img['S'], body['message']['chat']['id'], body['message']['message_id'])
+            path = telegram_get_file(img['S'])
+            if path not in sent_images:
+                telegram_send_photo(img['S'], body['message']['chat']['id'], body['message']['message_id'])
+                sent_images.add(path)
 
         return {'statusCode': 200, 'body': 'True'}
 
     # /check
     if 'text' in body['message'] and body['message']['text'].startswith('/check'):
-        if 'reply_to_message' not in body['message']:
+
+        message = None
+
+        if 'reply_to_message' in body['message']:
+            message = body['message']['reply_to_message']
+
+        if 'photo' in body['message']:
+            message = body['message']
+
+        if message is None:
             #return lambda_reply_and_exit('Немогли бы вы прислать хотя бы фото', body)
             return {'statusCode': 200, 'body': 'True'}
 
@@ -190,25 +206,50 @@ def lambda_handler(event, context):
         if body['message']['text'][7:] == 'force':
             force = True
 
-        print(event)
-        lambda_check_image(body['message']['reply_to_message'], force)
+        lambda_check_image(message, force)
 
         return {'statusCode': 200, 'body': 'True'}
 
     if 'photo' in body['message']:
-        print(event)
-        lambda_check_image(body['message'], silent = False, verbose = False)
+        #print(event)
+        # Не отвечать текстом на фото если находишся в груповом чате
+
+        silent = body['message']['chat']['id'] < 0
+
+        if 'caption' in body['message'] and body['message']['caption'].startswith('/check'):
+            silent = False
+
+        lambda_check_image(body['message'], silent = silent, verbose = False)
         return {'statusCode': 200, 'body': 'True'}
 
     # only private chat
     if body['message']['chat']['id'] > 0:
+
         # search
         if 'text' in body['message'] and body['message']['text'].startswith('/search'):
             message = ""
-            for item in db.search_by_plate( body['message']['text'].split(" ")[1:] ):
+            search_plates = body['message']['text'][8:].strip().upper().split(" ")
+            for item in db.search_by_plate( search_plates ):
                 message += item['plate']['S'] + "\n"
             if len(message) > 0:
                 return lambda_reply_and_exit(message, body)
             return {'statusCode': 200, 'body': 'True'}
+
+        # add image
+        if 'text' in body['message'] and body['message']['text'].startswith('/image_add'):
+
+            file_id = lambda_get_photo_file_id_from_message(body['message'])
+            if file_id is None and 'reply_to_message' in body['message']:
+                file_id = lambda_get_photo_file_id_from_message(body['message']['reply_to_message'])
+
+            if file_id is None:
+                return lambda_reply_and_exit("Нет фоток", body)
+
+            plate = body['message']['text'][11:].strip().upper()
+            vehicle = db.get_vehicle(plate)
+            db.add_images(vehicle, file_id)
+            db.save_vehicle(vehicle)
+
+            return lambda_reply_and_exit("Фото добавленно", body)
 
     return {'statusCode': 200, 'body': 'True'}
