@@ -1,7 +1,7 @@
 import os
 import json
 import urllib3
-import master.db as db
+import master.database as db
 
 
 def request_json(method, url, fields, headers = {}):
