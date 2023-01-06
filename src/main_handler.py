@@ -1,7 +1,7 @@
 import os
 import json
 import urllib3
-import database as db
+import master.database as db
 
 
 def request_json(method, url, fields, headers = {}):
@@ -151,7 +151,7 @@ def lambda_check_image(message, force = False, silent = False, verbose = True):
                 )
 
 
-def lambda_handler(event, context):
+def handler(event, context):
 
     if 'headers' not in event:
         return {'statusCode': 200, 'body': 'True'}
@@ -187,6 +187,10 @@ def lambda_handler(event, context):
 
         return {'statusCode': 200, 'body': 'True'}
 
+    # /version
+    if 'text' in body['message'] and body['message']['text'].startswith('/version'):
+        return lambda_reply_and_exit("0.0.1", body)
+
     # /check
     if 'text' in body['message'] and body['message']['text'].startswith('/check'):
 
@@ -213,12 +217,12 @@ def lambda_handler(event, context):
     if 'photo' in body['message']:
         #print(event)
         # Не отвечать текстом на фото если находишся в груповом чате
-
+        
         silent = body['message']['chat']['id'] < 0
-
+        
         if 'caption' in body['message'] and body['message']['caption'].startswith('/check'):
             silent = False
-
+        
         lambda_check_image(body['message'], silent = silent, verbose = False)
         return {'statusCode': 200, 'body': 'True'}
 
@@ -234,14 +238,14 @@ def lambda_handler(event, context):
             if len(message) > 0:
                 return lambda_reply_and_exit(message, body)
             return {'statusCode': 200, 'body': 'True'}
-
+        
         # add image
         if 'text' in body['message'] and body['message']['text'].startswith('/image_add'):
-
+            
             file_id = lambda_get_photo_file_id_from_message(body['message'])
             if file_id is None and 'reply_to_message' in body['message']:
                 file_id = lambda_get_photo_file_id_from_message(body['message']['reply_to_message'])
-
+            
             if file_id is None:
                 return lambda_reply_and_exit("Нет фоток", body)
 
@@ -249,7 +253,7 @@ def lambda_handler(event, context):
             vehicle = db.get_vehicle(plate)
             db.add_images(vehicle, file_id)
             db.save_vehicle(vehicle)
-
+        
             return lambda_reply_and_exit("Фото добавленно", body)
 
     return {'statusCode': 200, 'body': 'True'}
