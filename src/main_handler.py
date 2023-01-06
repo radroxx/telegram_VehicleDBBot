@@ -1,7 +1,17 @@
 import os
 import json
 import urllib3
+import boto3
+import base64
 import master.database as db
+
+
+def get_encrypt_env(env):
+
+    return boto3.client('kms').decrypt(
+        CiphertextBlob=base64.b64decode(os.environ[env]),
+        EncryptionContext={'LambdaFunctionName': os.environ['AWS_LAMBDA_FUNCTION_NAME']}
+    )['Plaintext'].decode('utf-8')
 
 
 def request_json(method, url, fields, headers = {}):
@@ -25,7 +35,7 @@ def telegram_send_message(text, chat_id, reply_to = None):
     
     return request_json(
         'POST', 
-        'https://api.telegram.org/bot' + os.getenv('TELEGRAM_BOT_API') + '/sendMessage',
+        'https://api.telegram.org/bot' + get_encrypt_env('TELEGRAM_BOT_API') + '/sendMessage',
         fields
         )
 
@@ -42,7 +52,7 @@ def telegram_send_photo(photo, chat_id, reply_to = None):
     
     return request_json(
         'POST', 
-        'https://api.telegram.org/bot' + os.getenv('TELEGRAM_BOT_API') + '/sendPhoto',
+        'https://api.telegram.org/bot' + get_encrypt_env('TELEGRAM_BOT_API') + '/sendPhoto',
         fields
         )
 
@@ -51,11 +61,11 @@ def telegram_get_file(file_id):
     
     status, body = request_json(
         'POST', 
-        'https://api.telegram.org/bot' + os.getenv('TELEGRAM_BOT_API') + '/getFile',
+        'https://api.telegram.org/bot' + get_encrypt_env('TELEGRAM_BOT_API') + '/getFile',
         {'file_id': file_id}
     )
     if status == 200 and body is not None:
-        return "https://api.telegram.org/file/bot" + os.getenv('TELEGRAM_BOT_API') + "/" + body['result']['file_path']
+        return "https://api.telegram.org/file/bot" + get_encrypt_env('TELEGRAM_BOT_API') + "/" + body['result']['file_path']
 
     return None
 
@@ -84,7 +94,7 @@ def platerecognizer_plate_reader(file_path):
     status, body = request_json(
         'POST',
         'https://api.platerecognizer.com/v1/plate-reader/',
-        headers={'Authorization': 'Token ' + os.getenv('PLATERECOGNIZER_API')},
+        headers={'Authorization': 'Token ' + get_encrypt_env('PLATERECOGNIZER_API')},
         fields={
             'regions': 'lt',
             'upload_url': file_path
