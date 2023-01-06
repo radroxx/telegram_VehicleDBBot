@@ -30,27 +30,27 @@ steps:
   - pip install --no-cache-dir --quiet pytest
   - pytest src
 
-- name: Zip
-  image: alpine:3.17
-  commands:
-  - apk add zip
-  - echo "H4sIAAAAAAACA5WRMWvDMBCF9/yKq5bY4KahoyFDcE07pLS0pkspRrHOiYotGd0lNIT890pRAhnSodru453uvTvdD9YxWMrgm6wZKWyhk/1SyXotjerQJbhFwxk01jD+cJqPwD/dwpFPVsiJWKNU6EhksD+kERVBbvi22g3ouRAp3MxAyGHodCNZW3MXBoocHPLGGdgLYskbKqxCT++nU9+1tGrnC1G5DYrDeXLEYCyDNtHHv78JCGbH0JPOSkUx52fUfqXnWcQuCSim6pFIrvAyaLOWfFlrFeOmwZulANFsE1GVi/Lxbf5cP5Qf5eLltS6e5tV71E7Ib4WTcTZOc2id7UF5N50dQMf7nG5xNIUd4UnVS2J010Snbfxxw191vnbr9gEAAA==" | base64 -d | gzip -dc > lambda_function.py
-  - wget https://github.com/radroxx/telegram_VehicleDBBot/archive/refs/heads/master.zip
-  - wget https://github.com/radroxx/telegram_VehicleDBBot/archive/refs/heads/develop.zip
-  - unzip master.zip
-  - unzip develop.zip
-  - mv telegram_VehicleDBBot-master/src master
-  - mv telegram_VehicleDBBot-develop/src develop
-  - rm -Rf telegram_VehicleDBBot-master telegram_VehicleDBBot-develop master.zip develop.zip
-  - zip -r deploy.zip lambda_function.py master develop
-  when:
-    ref: ["refs/heads/master", "refs/heads/develop"]
+#- name: Zip
+#  image: alpine:3.17
+#  commands:
+#  - apk add zip
+#  - echo "H4sIAAAAAAACA5WRMWvDMBCF9/yKq5bY4KahoyFDcE07pLS0pkspRrHOiYotGd0lNIT890pRAhnSodru453uvTvdD9YxWMrgm6wZKWyhk/1SyXotjerQJbhFwxk01jD+cJqPwD/dwpFPVsiJWKNU6EhksD+kERVBbvi22g3ouRAp3MxAyGHodCNZW3MXBoocHPLGGdgLYskbKqxCT++nU9+1tGrnC1G5DYrDeXLEYCyDNtHHv78JCGbH0JPOSkUx52fUfqXnWcQuCSim6pFIrvAyaLOWfFlrFeOmwZulANFsE1GVi/Lxbf5cP5Qf5eLltS6e5tV71E7Ib4WTcTZOc2id7UF5N50dQMf7nG5xNIUd4UnVS2J010Snbfxxw191vnbr9gEAAA==" | base64 -d | gzip -dc > lambda_function.py
+#  - wget https://github.com/radroxx/telegram_VehicleDBBot/archive/refs/heads/master.zip
+#  - wget https://github.com/radroxx/telegram_VehicleDBBot/archive/refs/heads/develop.zip
+#  - unzip master.zip
+#  - unzip develop.zip
+#  - mv telegram_VehicleDBBot-master/src master
+#  - mv telegram_VehicleDBBot-develop/src develop
+#  - rm -Rf telegram_VehicleDBBot-master telegram_VehicleDBBot-develop master.zip develop.zip
+#  - zip -r deploy.zip lambda_function.py master develop
+#  when:
+#    ref: ["refs/heads/master", "refs/heads/develop"]
 
-- name: Deploy lambda
-  image: amazon/aws-cli:2.9.13
-  environment:
-    AWS_DEFAULT_REGION: eu-central-1
-  commands:
-  - lambda update-function-code --function-name TelegramVehicleDBBot --zip-file fileb://deploy.zip --publish --output table
-  when:
-    ref: ["refs/heads/master", "refs/heads/develop"]
+#- name: Deploy lambda
+#  image: amazon/aws-cli:2.9.13
+#  environment:
+#    AWS_DEFAULT_REGION: eu-central-1
+#  commands:
+#  - lambda update-function-code --function-name TelegramVehicleDBBot --zip-file fileb://deploy.zip --publish --output table
+#  when:
+#    ref: ["refs/heads/master", "refs/heads/develop"]
