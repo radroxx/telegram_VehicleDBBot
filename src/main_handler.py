@@ -189,7 +189,7 @@ def handler(event, context):
 
     # /version
     if 'text' in body['message'] and body['message']['text'].startswith('/version'):
-        return lambda_reply_and_exit("0.0.1", body)
+        return lambda_reply_and_exit("0.0.2", body)
 
     # /check
     if 'text' in body['message'] and body['message']['text'].startswith('/check'):
