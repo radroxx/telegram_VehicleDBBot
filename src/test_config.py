@@ -5,7 +5,11 @@ import base64
 from .test_mock import create_facke_boto3_module
 from .cache import cache_wipe_key
 from .aws import aws_kms
-from .config import config_platerecognizer_api_key, config_telegram_url
+from .config import (
+    config_platerecognizer_api_key,
+    config_telegram_url,
+    config_telegram_file_url
+)
 
 
 create_facke_boto3_module()
@@ -25,6 +29,7 @@ def test_telegram_url():
     os.environ["TELEGRAM_BOT_API"] = test_data
 
     assert config_telegram_url() == "https://api.telegram.org/bothello_world_2/"
+    assert config_telegram_file_url() == "https://api.telegram.org/file/bothello_world_2/"
 
 
 def test_platerecognizer_api_key_cache():
@@ -47,7 +52,7 @@ def test_telegram_url_cache():
 
     test_data = base64.b64encode(b"hello_world_4").decode("UTF-8")
     os.environ["TELEGRAM_BOT_API"] = test_data
-    cache_wipe_key("config_telegram_url")
+    cache_wipe_key("config_telegram_key")
 
     client = aws_kms()
     decrypt_count = client.decrypt_count
