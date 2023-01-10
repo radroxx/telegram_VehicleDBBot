@@ -19,7 +19,7 @@ steps:
   environment:
     PYTHONDONTWRITEBYTECODE: 1
   commands:
-  - pip install --no-cache-dir --quiet pylint
+  - pip install --no-cache-dir --quiet pylint urllib3
   - pylint src
 
 - name: Unit tests
@@ -27,7 +27,8 @@ steps:
   environment:
     PYTHONDONTWRITEBYTECODE: 1
   commands:
-  - pip install --no-cache-dir --quiet pytest
+  - pip install --no-cache-dir --quiet pytest urllib3
+  - ln -s src/fake_boto3.py boto3.py
   - pytest src
 
 #- name: Zip

@@ -1,9 +1,10 @@
 """Test aws"""
 
 import base64
-from .test_mock import DynamoDB, KMS
+from boto3 import DynamoDB, KMS
 from .cache import cache_init
 from .aws import aws_kms, aws_dynamodb, aws_kms_decrypt # pylint: disable=C0413
+
 
 def setup_module(module): # pylint: disable=W0613
     """Init"""

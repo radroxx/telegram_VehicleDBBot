@@ -2,7 +2,6 @@
 
 import os
 import base64
-from .test_mock import create_facke_boto3_module
 from .cache import cache_wipe_key
 from .aws import aws_kms
 from .config import (
@@ -10,9 +9,6 @@ from .config import (
     config_telegram_url,
     config_telegram_file_url
 )
-
-
-create_facke_boto3_module()
 
 
 def test_platerecognizer_api_key():
