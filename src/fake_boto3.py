@@ -1,3 +1,4 @@
+"""Fuck boto3 module"""
 
 class KMS: # pylint: disable=R0903
     """Mock aws kms encrypt"""
