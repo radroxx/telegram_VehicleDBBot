@@ -105,7 +105,7 @@ def _db_create_tables():
 def db_get_user(chat_id, user_id):
     """Get user from db"""
 
-    items = aws_dynamodb().get_item(
+    db_response = aws_dynamodb().get_item(
         TableName = __USERS_TABLE_NAME,
         Key = {"chat_id": {'N': str(chat_id)}, "user_id": {'N': str(user_id)}}
     )
@@ -114,8 +114,8 @@ def db_get_user(chat_id, user_id):
         "user_id": {'N': user_id},
         "raiting": {'N': 0}
     }
-    if "Item" in items:
-        item = items["Item"]
+    if "Item" in db_response:
+        item = db_response["Item"]
     item["chat_id"]['N'] = int(item["chat_id"]['N'])
     item["user_id"]['N'] = int(item["user_id"]['N'])
     item["raiting"]['N'] = int(item["raiting"]['N'])
@@ -154,7 +154,7 @@ def db_get_vehicle_raiting(chat_id, plate):
     """Get vehicle raiting"""
 
     items = aws_dynamodb().get_item(
-        TableName = __USERS_TABLE_NAME,
+        TableName = __VEHICLE_RATING_TABLE_NAME,
         Key = {"chat_id": {'N': str(chat_id)}, "plate": {'S': str(plate)}}
     )
     item = {
@@ -205,6 +205,7 @@ def db_get_vehicle(plate):
     item = {
         "plate": {'S': plate},
         "show_images": {'L': []},
+        "is_hiden": {"BOOL": False}
     }
     if "Item" in items:
         item = items["Item"]
