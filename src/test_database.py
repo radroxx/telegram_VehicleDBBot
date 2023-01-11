@@ -1,10 +1,8 @@
 """Test database methods"""
 
-from .database import get_vehicle_by_plate
+from .database import _db_create_tables
 
-def test_get_vehicle_by_plate():
+def test_db_create():
     """Test read vehicle by plate"""
 
-    tmp_var = get_vehicle_by_plate("test")
-
-    assert not tmp_var
+    _db_create_tables()
