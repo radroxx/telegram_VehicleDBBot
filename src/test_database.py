@@ -97,6 +97,7 @@ def test_db_get_vehicle():
     vehicle = db_get_vehicle("[GB] 5H43H")
 
     assert vehicle["plate"]["S"] == "[GB] 5H43H"
+    assert vehicle["images_file_uid"]["L"] == []
     assert vehicle["show_images"]["L"] == []
     assert vehicle["is_hiden"]["BOOL"] is False
 

@@ -1,5 +1,5 @@
 """Database methods"""
-
+import time
 from .cache import cache_write, cache_exists
 from .aws import aws_dynamodb
 
@@ -204,6 +204,7 @@ def db_get_vehicle(plate):
     )
     item = {
         "plate": {'S': plate},
+        "images_file_uid": {'L': []},
         "show_images": {'L': []},
         "is_hiden": {"BOOL": False}
     }
@@ -249,10 +250,16 @@ def db_query_checks_log(chat_id, plate, order = "asc", limit = 1):
 
     data = aws_dynamodb().query(
         TableName = __CHECK_LOGS_TABLE_NAME,
-        KeyConditionExpression = "#chat_id = :chat_id and #plate = :plate",
-        ExpressionAttributeNames = {"#chat_id": "chat_id", "#plate": "plate"},
+        KeyConditionExpression = "#chat_id = :chat_id and #timestamp < :timestamp",
+        FilterExpression = "#plate = :plate",
+        ExpressionAttributeNames = {
+            "#chat_id": "chat_id",
+            "#timestamp": "timestamp",
+            "#plate": "plate"
+        },
         ExpressionAttributeValues = {
             ":chat_id": {'N': str(chat_id)},
+            ":timestamp": {'N': str(int(time.time()))},
             ":plate": {'S': plate}
         },
         ScanIndexForward = scan_index_forward,
@@ -261,7 +268,7 @@ def db_query_checks_log(chat_id, plate, order = "asc", limit = 1):
     for item in data["Items"]:
         item["chat_id"]['N'] = int(item["chat_id"]['N'])
         item["user_id"]['N'] = int(item["user_id"]['N'])
-        item["timestamp"]['N'] = int(item["timestamp"]['N'])
+        item["timestamp"]['N'] = float(item["timestamp"]['N'])
         item["message_id"]['N'] = int(item["message_id"]['N'])
     return data["Items"]
 

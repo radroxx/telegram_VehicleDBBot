@@ -54,7 +54,7 @@ class DynamoDB:
         return {}
 
     def query(self, *, TableName, IndexName = None,
-        KeyConditionExpression, ExpressionAttributeNames, # pylint: disable=W0613
+        KeyConditionExpression, FilterExpression = None, ExpressionAttributeNames, # pylint: disable=W0613
         ExpressionAttributeValues, ScanIndexForward, Limit):
         """Search items in db"""
         responce = []
