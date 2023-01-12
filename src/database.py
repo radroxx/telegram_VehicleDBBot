@@ -140,7 +140,7 @@ def db_top_users(chat_id, top = 10):
         KeyConditionExpression = "#chat_id = :chat_id",
         ExpressionAttributeNames = {"#chat_id": "chat_id"},
         ExpressionAttributeValues = {":chat_id": {'N': str(chat_id)}},
-        ScanIndexForward = True,
+        ScanIndexForward = False,
         Limit = top,
     )
     for item in data["Items"]:
@@ -186,7 +186,7 @@ def db_top_vehicles(chat_id, top = 10):
         KeyConditionExpression = "#chat_id = :chat_id",
         ExpressionAttributeNames = {"#chat_id": "chat_id"},
         ExpressionAttributeValues = {":chat_id": {'N': str(chat_id)}},
-        ScanIndexForward = True,
+        ScanIndexForward = False,
         Limit = top,
     )
     for item in data["Items"]:
@@ -241,27 +241,43 @@ def db_put_vehicle_image(item):
     aws_dynamodb().put_item(TableName = __VEHICLE_IMAGES_TABLE_NAME, Item = item)
 
 
-def db_query_checks_log(chat_id, plate, order = "asc", limit = 1):
+def db_query_checks_log(chat_id, plate = None, message_id = None, order = "asc", limit = 1):
     """Scan table and return ordering check logs"""
 
-    scan_index_forward = False
+    scan_index_forward = True
     if order == "desc":
-        scan_index_forward = True
+        scan_index_forward = False
+
+    expression = ""
+    name_attr = {
+        "#chat_id": "chat_id",
+        "#timestamp": "timestamp"
+    }
+    value_attr = {
+        ":chat_id": {'N': str(chat_id)},
+        ":timestamp": {'N': str(int(time.time()))}
+    }
+
+    if plate:
+        if len(expression) > 0:
+            expression += " AND "
+        expression += "#plate = :plate"
+        name_attr["#plate"] = "plate"
+        value_attr[":plate"] = {'S': plate}
+
+    if message_id:
+        if len(expression) > 0:
+            expression += " AND "
+        expression += "#message_id = :message_id"
+        name_attr["#message_id"] = "message_id"
+        value_attr[":message_id"] = {'N': str(message_id)}
 
     data = aws_dynamodb().query(
         TableName = __CHECK_LOGS_TABLE_NAME,
         KeyConditionExpression = "#chat_id = :chat_id and #timestamp < :timestamp",
-        FilterExpression = "#plate = :plate",
-        ExpressionAttributeNames = {
-            "#chat_id": "chat_id",
-            "#timestamp": "timestamp",
-            "#plate": "plate"
-        },
-        ExpressionAttributeValues = {
-            ":chat_id": {'N': str(chat_id)},
-            ":timestamp": {'N': str(int(time.time()))},
-            ":plate": {'S': plate}
-        },
+        FilterExpression = expression,
+        ExpressionAttributeNames = name_attr,
+        ExpressionAttributeValues = value_attr,
         ScanIndexForward = scan_index_forward,
         Limit = limit,
     )
@@ -275,12 +291,17 @@ def db_query_checks_log(chat_id, plate, order = "asc", limit = 1):
 
 def db_get_checks_log_first(chat_id, plate):
     """Get first check log by plate"""
-    return db_query_checks_log(chat_id, plate, "asc", 1)
+    return db_query_checks_log(chat_id, plate=plate, order="asc", limit=1)
 
 
 def db_get_checks_log_last(chat_id, plate):
     """Get last check log by plate"""
-    return db_query_checks_log(chat_id, plate, "desc", 1)
+    return db_query_checks_log(chat_id, plate=plate, order="desc", limit=1)
+
+
+def db_get_checks_log_by_message_id(chat_id, message_id):
+    """Find check by message_id"""
+    return db_query_checks_log(chat_id, message_id=message_id, order="desc", limit=1)
 
 
 def db_put_checks_log( # pylint: disable=R0913
@@ -297,3 +318,35 @@ def db_put_checks_log( # pylint: disable=R0913
     }
 
     aws_dynamodb().put_item(TableName = __CHECK_LOGS_TABLE_NAME, Item = item)
+
+
+def db_seach_plate(plate_contains, chat_id = None, limit = 10):
+    """Search vehicle by plate"""
+    if len(plate_contains) == 0:
+        return []
+
+    expression = ""
+    name_attr = {"#plate": "plate"}
+    value_attr = {}
+
+    if chat_id:
+        name_attr["#chat_id"] = "chat_id"
+        value_attr[":chat_id"] = {'N': str(chat_id)}
+        expression = "#chat_id = :chat_id"
+
+    index = 0
+    for plate in plate_contains:
+        value_attr[":v" + str(index)] = {'S': plate}
+        if len(expression) > 0:
+            expression += " AND "
+        expression += "contains(#plate, :v" + str(index) + ")"
+
+    data = aws_dynamodb().scan(
+        TableName = __VEHICLE_RATING_TABLE_NAME,
+        FilterExpression = expression,
+        ExpressionAttributeNames = name_attr,
+        ExpressionAttributeValues = value_attr,
+        Limit = limit
+    )
+
+    return data.get("Items", [])

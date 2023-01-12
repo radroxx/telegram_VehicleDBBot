@@ -78,7 +78,7 @@ class DynamoDB:
         ordered_list = sorted(
             responce,
             key=lambda k: int(k[order_by]['N']),
-            reverse=ScanIndexForward
+            reverse=not ScanIndexForward
         )
 
         return {"Items": ordered_list[0:Limit]}
