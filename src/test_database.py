@@ -14,8 +14,7 @@ from .database import (
     db_top_users,
     db_top_vehicles,
     db_put_checks_log,
-    db_get_checks_log_first,
-    db_get_checks_log_last
+    db_get_checks_log
 )
 
 
@@ -180,14 +179,8 @@ def test_db_put_checks_log():
     db_put_checks_log(-11, 13, "0002", 50, 656345, True)
     db_put_checks_log(-11, 14, "0002", 60, 743523, True)
 
-    first = db_get_checks_log_first(-10, "0001")
-    last = db_get_checks_log_last(-10, "0001")
+    first = db_get_checks_log(-10, 10)
+    last = db_get_checks_log(-10, 14)
 
-    assert first[0]["message_id"]['N'] == 231432
-    assert last[0]["message_id"]['N'] == 457594
-
-    first = db_get_checks_log_first(-11, "0002")
-    last = db_get_checks_log_last(-11, "0001")
-
-    assert first[0]["message_id"]['N'] == 656345
-    assert last[0]["message_id"]['N'] == 876657
+    assert first["message_id"]['N'] == 231432
+    assert last["message_id"]['N'] == 457594
