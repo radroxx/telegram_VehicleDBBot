@@ -54,7 +54,7 @@ class DynamoDB:
         return {}
 
     def query(self, *, TableName, IndexName = None,
-        KeyConditionExpression, ExpressionAttributeNames, # pylint: disable=W0613
+        KeyConditionExpression, FilterExpression = None, ExpressionAttributeNames, # pylint: disable=W0613
         ExpressionAttributeValues, ScanIndexForward, Limit):
         """Search items in db"""
         responce = []
@@ -78,7 +78,7 @@ class DynamoDB:
         ordered_list = sorted(
             responce,
             key=lambda k: int(k[order_by]['N']),
-            reverse=ScanIndexForward
+            reverse=not ScanIndexForward
         )
 
         return {"Items": ordered_list[0:Limit]}

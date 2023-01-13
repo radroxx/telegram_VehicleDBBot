@@ -91,11 +91,20 @@ def _db_create_tables():
             AttributeDefinitions = [
                 {"AttributeName": "chat_id", "AttributeType": 'N'},
                 {"AttributeName": "timestamp", "AttributeType": 'N'},
+                {"AttributeName": "plate", "AttributeType": 'S'},
             ],
             KeySchema = [
                 {"AttributeName": "chat_id", "KeyType": "HASH"},
                 {"AttributeName": "timestamp", "KeyType": "RANGE"},
             ],
+            LocalSecondaryIndexes = [{
+                "IndexName": "check_logs_by_plate",
+                "KeySchema": [
+                    {"AttributeName": "chat_id", "KeyType": "HASH"},
+                    {"AttributeName": "plate", "KeyType": "RANGE"}
+                ],
+                "Projection": {"ProjectionType": "ALL"}
+            }],
             ProvisionedThroughput = {"ReadCapacityUnits": 5, "WriteCapacityUnits": 5}
         )
 
@@ -140,7 +149,7 @@ def db_top_users(chat_id, top = 10):
         KeyConditionExpression = "#chat_id = :chat_id",
         ExpressionAttributeNames = {"#chat_id": "chat_id"},
         ExpressionAttributeValues = {":chat_id": {'N': str(chat_id)}},
-        ScanIndexForward = True,
+        ScanIndexForward = False,
         Limit = top,
     )
     for item in data["Items"]:
@@ -186,7 +195,7 @@ def db_top_vehicles(chat_id, top = 10):
         KeyConditionExpression = "#chat_id = :chat_id",
         ExpressionAttributeNames = {"#chat_id": "chat_id"},
         ExpressionAttributeValues = {":chat_id": {'N': str(chat_id)}},
-        ScanIndexForward = True,
+        ScanIndexForward = False,
         Limit = top,
     )
     for item in data["Items"]:
@@ -204,6 +213,7 @@ def db_get_vehicle(plate):
     )
     item = {
         "plate": {'S': plate},
+        "images_file_uid": {'L': []},
         "show_images": {'L': []},
         "is_hiden": {"BOOL": False}
     }
@@ -243,14 +253,18 @@ def db_put_vehicle_image(item):
 def db_query_checks_log(chat_id, plate, order = "asc", limit = 1):
     """Scan table and return ordering check logs"""
 
-    scan_index_forward = False
+    scan_index_forward = True
     if order == "desc":
-        scan_index_forward = True
+        scan_index_forward = False
 
     data = aws_dynamodb().query(
         TableName = __CHECK_LOGS_TABLE_NAME,
+        IndexName = "check_logs_by_plate",
         KeyConditionExpression = "#chat_id = :chat_id and #plate = :plate",
-        ExpressionAttributeNames = {"#chat_id": "chat_id", "#plate": "plate"},
+        ExpressionAttributeNames = {
+            "#chat_id": "chat_id",
+            "#plate": "plate"
+        },
         ExpressionAttributeValues = {
             ":chat_id": {'N': str(chat_id)},
             ":plate": {'S': plate}
@@ -261,19 +275,19 @@ def db_query_checks_log(chat_id, plate, order = "asc", limit = 1):
     for item in data["Items"]:
         item["chat_id"]['N'] = int(item["chat_id"]['N'])
         item["user_id"]['N'] = int(item["user_id"]['N'])
-        item["timestamp"]['N'] = int(item["timestamp"]['N'])
+        item["timestamp"]['N'] = float(item["timestamp"]['N'])
         item["message_id"]['N'] = int(item["message_id"]['N'])
     return data["Items"]
 
 
 def db_get_checks_log_first(chat_id, plate):
     """Get first check log by plate"""
-    return db_query_checks_log(chat_id, plate, "asc", 1)
+    return db_query_checks_log(chat_id, plate=plate, order="asc", limit=1)
 
 
 def db_get_checks_log_last(chat_id, plate):
     """Get last check log by plate"""
-    return db_query_checks_log(chat_id, plate, "desc", 1)
+    return db_query_checks_log(chat_id, plate=plate, order="desc", limit=1)
 
 
 def db_put_checks_log( # pylint: disable=R0913
@@ -290,3 +304,35 @@ def db_put_checks_log( # pylint: disable=R0913
     }
 
     aws_dynamodb().put_item(TableName = __CHECK_LOGS_TABLE_NAME, Item = item)
+
+
+def db_seach_plate(plate_contains, chat_id = None, limit = 10):
+    """Search vehicle by plate"""
+    if len(plate_contains) == 0:
+        return []
+
+    expression = ""
+    name_attr = {"#plate": "plate"}
+    value_attr = {}
+
+    if chat_id:
+        name_attr["#chat_id"] = "chat_id"
+        value_attr[":chat_id"] = {'N': str(chat_id)}
+        expression = "#chat_id = :chat_id"
+
+    index = 0
+    for plate in plate_contains:
+        value_attr[":v" + str(index)] = {'S': plate}
+        if len(expression) > 0:
+            expression += " AND "
+        expression += "contains(#plate, :v" + str(index) + ")"
+
+    data = aws_dynamodb().scan(
+        TableName = __VEHICLE_RATING_TABLE_NAME,
+        FilterExpression = expression,
+        ExpressionAttributeNames = name_attr,
+        ExpressionAttributeValues = value_attr,
+        Limit = limit
+    )
+
+    return data.get("Items", [])

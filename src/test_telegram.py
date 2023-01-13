@@ -124,29 +124,6 @@ def test_telegram_send_photo_reply():
     assert data["ok"] is True
 
 
-def test_telegram_send_photo_text():
-    """Test description photo"""
-    def test_request(method, url, fields, headers, **urlopen_kw): # pylint: disable=W0613
-        assert "chat_id" in fields
-        assert "photo" in fields
-        assert "caption" in fields
-        assert fields["photo"] == \
-            "AgACAgIAAxkBAAIDg2O8lSrfe6ZdstytH9IKfiOpzvOJAAK2wjEbKGbpSdINZ0VFGROrAQADAgADeQADLQQ"
-        assert fields["caption"] == "Hello"
-        assert url == "https://api.telegram.org/botapi/sendPhoto"
-
-    urllib3.PoolManager.request = mock_request(200, '{"ok":true}', test_request)
-
-    data = telegram_send_photo(
-        -1,
-        "AgACAgIAAxkBAAIDg2O8lSrfe6ZdstytH9IKfiOpzvOJAAK2wjEbKGbpSdINZ0VFGROrAQADAgADeQADLQQ",
-        caption="Hello"
-    )
-
-    assert "ok" in data
-    assert data["ok"] is True
-
-
 def test_telegram_get_file_url():
     """Test get file url"""
 

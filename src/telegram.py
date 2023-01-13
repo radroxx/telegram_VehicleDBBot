@@ -11,7 +11,7 @@ def _telegram_api(method, chat_id, fields, reply_to_message_id = None):
     if chat_id:
         fields["chat_id"] = chat_id
 
-    if "text" in fields or "caption" in fields:
+    if "text" in fields:
         fields["parse_mode"] = "html"
 
     if reply_to_message_id:
@@ -31,13 +31,10 @@ def telegram_send_message(chat_id, text, reply_to_message_id = None):
     return _telegram_api("sendMessage", chat_id, {"text": text}, reply_to_message_id)
 
 
-def telegram_send_photo(chat_id, photos, caption = None, reply_to_message_id = None):
+def telegram_send_photo(chat_id, photos, reply_to_message_id = None):
     """Send one photo or media group"""
 
     fields = {}
-
-    if caption:
-        fields["caption"] = caption
 
     if isinstance(photos, list):
         media = []
