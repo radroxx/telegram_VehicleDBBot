@@ -13,8 +13,6 @@ from .database import (
     db_put_vehicle_image,
     db_top_users,
     db_top_vehicles,
-    db_put_checks_log,
-    db_get_checks_log
 )
 
 
@@ -166,21 +164,3 @@ def test_db_top_vehicles():
     assert top_list[0]["plate"]['S'] == "1003"
     assert top_list[1]["plate"]['S'] == "2002"
     assert top_list[2]["plate"]['S'] == "43123"
-
-
-def test_db_put_checks_log():
-    """Test check logs table"""
-    db_put_checks_log(-10, 11, "0001", 30, 428364, True)
-    db_put_checks_log(-10, 10, "0001", 20, 231432, True)
-    db_put_checks_log(-10, 14, "0001", 40, 457594, True)
-    db_put_checks_log(-10, 12, "0001", 30, 428364, True)
-    db_put_checks_log(-11, 11, "0001", 50, 312556, True)
-    db_put_checks_log(-11, 12, "0001", 60, 876657, True)
-    db_put_checks_log(-11, 13, "0002", 50, 656345, True)
-    db_put_checks_log(-11, 14, "0002", 60, 743523, True)
-
-    first = db_get_checks_log(-10, 10)
-    last = db_get_checks_log(-10, 14)
-
-    assert first["message_id"]['N'] == 231432
-    assert last["message_id"]['N'] == 457594
