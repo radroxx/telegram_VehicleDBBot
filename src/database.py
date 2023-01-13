@@ -91,15 +91,47 @@ def _db_create_tables():
             AttributeDefinitions = [
                 {"AttributeName": "chat_id", "AttributeType": 'N'},
                 {"AttributeName": "timestamp", "AttributeType": 'N'},
+                {"AttributeName": "message_id", "AttributeType": 'N'},
             ],
             KeySchema = [
                 {"AttributeName": "chat_id", "KeyType": "HASH"},
                 {"AttributeName": "timestamp", "KeyType": "RANGE"},
             ],
+            LocalSecondaryIndexes = [{
+                "IndexName": "check_log_message_id",
+                "KeySchema": [
+                    {"AttributeName": "chat_id", "KeyType": "HASH"},
+                    {"AttributeName": "message_id", "KeyType": "RANGE"},
+                ],
+                "Projection": {"ProjectionType": "ALL"}
+            }],
             ProvisionedThroughput = {"ReadCapacityUnits": 5, "WriteCapacityUnits": 5}
         )
 
     cache_write("database_create_tables", True, 2628000) # 1 month
+
+
+def number_to_string(aws_obj):
+    """conver all number to string"""
+    for key in list(aws_obj.keys()):
+        if 'N' not in aws_obj[key]:
+            continue
+        aws_obj[key] = {'N': str(aws_obj[key]['N'])}
+    return aws_obj
+
+
+def string_to_number(aws_obj, float_keys = None):
+    """conver all number to number"""
+    if float_keys is None:
+        float_keys = []
+    for item in aws_obj.items():
+        if 'N' not in item[1]:
+            continue
+        if item[0] in float_keys:
+            item[1]['N'] = float(item[1]['N'])
+        else:
+            item[1]['N'] = int(item[1]['N'])
+    return aws_obj
 
 
 def db_get_user(chat_id, user_id):
@@ -116,19 +148,19 @@ def db_get_user(chat_id, user_id):
     }
     if "Item" in db_response:
         item = db_response["Item"]
-    item["chat_id"]['N'] = int(item["chat_id"]['N'])
-    item["user_id"]['N'] = int(item["user_id"]['N'])
-    item["raiting"]['N'] = int(item["raiting"]['N'])
-    return item
+
+    return string_to_number(item)
 
 
 def db_put_user(item):
     """Put user item to db"""
-    item["chat_id"]['N'] = str(item["chat_id"]['N'])
-    item["user_id"]['N'] = str(item["user_id"]['N'])
-    item["raiting"]['N'] = str(item["raiting"]['N'])
 
-    aws_dynamodb().put_item(TableName = __USERS_TABLE_NAME, Item = item)
+    aws_dynamodb().put_item(
+        TableName = __USERS_TABLE_NAME,
+        Item = number_to_string(item.copy())
+    )
+
+    return string_to_number(item)
 
 
 def db_top_users(chat_id, top = 10):
@@ -144,9 +176,7 @@ def db_top_users(chat_id, top = 10):
         Limit = top,
     )
     for item in data["Items"]:
-        item["chat_id"]['N'] = int(item["chat_id"]['N'])
-        item["user_id"]['N'] = int(item["user_id"]['N'])
-        item["raiting"]['N'] = int(item["raiting"]['N'])
+        string_to_number(item)
     return data["Items"]
 
 
@@ -162,25 +192,22 @@ def db_get_vehicle_raiting(chat_id, plate):
         "plate": {'S': plate},
         "raiting": {'N': 0},
         "first_check": {'N': 0},
-        "last_check": {'N': 0},
+        "last_check": {'N': 0}
     }
     if "Item" in items:
         item = items["Item"]
-    item["chat_id"]['N'] = int(item["chat_id"]['N'])
-    item["raiting"]['N'] = int(item["raiting"]['N'])
-    item["first_check"]['N'] = float(item["first_check"]['N'])
-    item["last_check"]['N'] = float(item["last_check"]['N'])
-    return item
+
+    return string_to_number(item, ["first_check", "last_check"])
 
 
 def db_put_vehicle_raiting(item):
     """Put user item to db"""
-    item["chat_id"]['N'] = str(item["chat_id"]['N'])
-    item["raiting"]['N'] = str(item["raiting"]['N'])
-    item["first_check"]['N'] = str(item["first_check"]['N'])
-    item["last_check"]['N'] = str(item["last_check"]['N'])
 
-    aws_dynamodb().put_item(TableName = __VEHICLE_RATING_TABLE_NAME, Item = item)
+    aws_dynamodb().put_item(
+        TableName = __VEHICLE_RATING_TABLE_NAME,
+        Item = number_to_string(item.copy())
+    )
+    return item
 
 
 def db_top_vehicles(chat_id, top = 10):
@@ -223,6 +250,7 @@ def db_put_vehicle(item):
     """Put vehicle item to db"""
 
     aws_dynamodb().put_item(TableName = __VEHICLE_TABLE_NAME, Item = item)
+    return item
 
 
 def db_get_vehicle_image(image_id):
@@ -245,6 +273,7 @@ def db_put_vehicle_image(item):
     """Put vehicle item"""
 
     aws_dynamodb().put_item(TableName = __VEHICLE_IMAGES_TABLE_NAME, Item = item)
+    return item
 
 
 def db_get_checks_log(chat_id, timestamp):
@@ -254,38 +283,75 @@ def db_get_checks_log(chat_id, timestamp):
         TableName = __CHECK_LOGS_TABLE_NAME,
         Key = {"chat_id": {'N': str(chat_id)}, "timestamp": {'N': str(timestamp)}},
     )
+
     item = {
-        "chat_id": {'N': chat_id},
-        "timestamp": {'N': timestamp},
-        "user_id": {'N': 0},
+        "chat_id": {'N': str(chat_id)},
+        "timestamp": {'N': 0},
+        "prev_timestamp": {'N': 0},
         "message_id": {'N': 0},
-        "plate": {'S': None}
+        "plate": {'S': None},
+        "dscore": {'N': 0},
+        "user_id": {'N': 0},
+        "user_raiting_diff": {'N': 0},
+        "user_raiting_current": {'N': 0},
+        "is_show_reply": {"BOOL": False},
     }
 
     if "Item" in items:
         item = items["Item"]
 
-    item["chat_id"]['N'] = int(item["chat_id"]['N'])
-    item["user_id"]['N'] = int(item["user_id"]['N'])
-    item["timestamp"]['N'] = float(item["timestamp"]['N'])
-    item["message_id"]['N'] = int(item["message_id"]['N'])
+    return string_to_number(item, ["timestamp", "prev_timestamp", "dscore"])
+
+
+def db_put_checks_log(item):
+    """Put check log"""
+
+    aws_dynamodb().put_item(
+        TableName = __CHECK_LOGS_TABLE_NAME,
+        Item = number_to_string(item.copy())
+    )
+
     return item
 
 
-def db_put_checks_log( # pylint: disable=R0913
-    chat_id, timestamp, plate,
-    user_id, message_id, is_show_reply = True):
+def db_get_checks_log_by_messae_id(chat_id, message_id):
+    """Find check logs by message_id"""
+    data = aws_dynamodb().query(
+        TableName = __CHECK_LOGS_TABLE_NAME,
+        IndexName = "check_log_message_id",
+        KeyConditionExpression = "#chat_id = :chat_id and #message_id = :message_id",
+        ExpressionAttributeNames = {"#chat_id": "chat_id", "#message_id": "message_id"},
+        ExpressionAttributeValues = {
+            ":chat_id": {'N': str(chat_id)},
+            ":message_id": {'N': str(message_id)}
+        },
+        ScanIndexForward = False,
+        Limit = 1000,
+    )
+    for item in data["Items"]:
+        string_to_number(item, ["timestamp", "prev_timestamp", "dscore"])
+    return data["Items"]
+
+
+def db_create_checks_log( # pylint: disable=R0913
+    chat_id, timestamp, prev_timestamp, message_id, plate, dscore,
+    user_id, raiting_diff, raiting_current, is_show_reply):
     """Put check log, timestamp with ns becose chat_id + timestamp is FK"""
+
     item = {
         "chat_id": {'N': str(chat_id)},
         "timestamp": {'N': str(timestamp)},
-        "plate": {'S': plate},
-        "user_id": {'N': str(user_id)},
+        "prev_timestamp": {'N': str(prev_timestamp)},
         "message_id": {'N': str(message_id)},
-        "is_show_reply": {"BOOL": is_show_reply}
+        "plate": {'S': plate},
+        "dscore": {'N': str(dscore)},
+        "user_id": {'N': user_id},
+        "user_raiting_diff": {'N': raiting_diff},
+        "user_raiting_current": {'N': raiting_current},
+        "is_show_reply": {"BOOL": is_show_reply},
     }
 
-    aws_dynamodb().put_item(TableName = __CHECK_LOGS_TABLE_NAME, Item = item)
+    return db_put_checks_log(item)
 
 
 def db_seach_plate(plate_contains, chat_id = None, limit = 10):

@@ -20,11 +20,12 @@ from .database import (
     db_put_user,
     db_get_vehicle_raiting,
     db_put_vehicle_raiting,
-    db_get_checks_log,
     db_put_checks_log,
+    db_create_checks_log,
+    db_get_checks_log_by_messae_id,
     db_top_users,
     db_top_vehicles,
-    db_seach_plate
+    db_seach_plate,
 )
 
 
@@ -145,7 +146,7 @@ def detect_plates_in_image(message, force = False): # pylint: disable=R0912
 
 def response_accordion(plate, last_check):
     """Generates a response if plate has already been"""
-    last_check_ago = int((time.time() - last_check)/86400)
+    last_check_ago = int((time.time() - float(last_check))/86400)
 
     if last_check_ago == 0:
         return \
@@ -343,13 +344,71 @@ def telegram_bot_command_images_handler(message):
     return DEFAULT_RESPONCE
 
 
-def telegram_bot_command_check_photo_handler(message): # pylint: disable=R0912,R0914
+def telegram_bot_photo_process(message, force = False):
+    """Processing photo"""
+
+    if "photo" not in message:
+        return []
+
+    check_logs = db_get_checks_log_by_messae_id(
+        message["chat"]["id"], message["message_id"]
+    )
+
+    if len(check_logs) > 0:
+        return check_logs
+
+    plates = detect_plates_in_image(message, force)
+
+    if len(plates) == 0:
+        return []
+
+    user = db_get_user(message["chat"]["id"], message["from"]["id"])
+
+    for plate in list(plates.keys()):
+
+        user_old_raiting = user["raiting"]['N']
+        vehicle_raiting = db_get_vehicle_raiting(message["chat"]["id"], plate)
+
+        # Докинем рейтинга машинке, но не больше чем реальных фоток
+        max_raiting = len(plates[plate]["vehicle"]["show_images"]['L'])
+        if vehicle_raiting["raiting"]['N'] < max_raiting:
+            vehicle_raiting["raiting"]['N'] += 1
+
+        # Если номер не чекался до этого
+        if vehicle_raiting["last_check"]['N'] == 0:
+            # Небыло еще
+            # Юзер молодец прислал уникальный номер
+            user["raiting"]['N'] += 1
+
+        check_time = time.time()
+        if vehicle_raiting['first_check']['N'] == 0:
+            vehicle_raiting['first_check']['N'] = check_time
+
+        item = db_create_checks_log(
+            message["chat"]["id"], check_time, vehicle_raiting["last_check"]['N'],
+            message["message_id"], plate, plates[plate]["dscore"],
+            message["from"]["id"], user["raiting"]['N'] - user_old_raiting,
+            user["raiting"]['N'], vehicle_raiting['first_check']['N'] != check_time
+        )
+        check_logs.append(item)
+
+        vehicle_raiting["last_check"]['N'] = check_time
+        db_put_vehicle_raiting(vehicle_raiting)
+
+    db_put_user(user)
+    return check_logs
+
+
+def telegram_bot_command_check_photo_handler(message): # pylint: disable=R0912
     """Processing photo"""
 
     bot_command, bot_command_args = get_bot_command(message)
 
     is_check = bot_command == "check"
     is_debug = "debug" in bot_command_args
+
+    if message["chat"]["type"] == "private":
+        is_check = True
 
     tg_msg = message
 
@@ -361,87 +420,72 @@ def telegram_bot_command_check_photo_handler(message): # pylint: disable=R0912,R
         # В любом другом случае игнорируем если фоток нет
         # Если был /check в супер группе без фоток то тоже игнорим
         # /check debug - показываем всегда
-        if is_debug or (is_check and message["chat"]["type"] != "supergroup"):
+        if is_debug \
+            or message["chat"]["type"] == "private" \
+            or (message["chat"]["type"] == "group" and is_check):
             telegram_send_message(
                 message["chat"]["id"], "А что чекать то ?", message["message_id"]
             )
         return DEFAULT_RESPONCE
 
-    plates = detect_plates_in_image(tg_msg, "force" in bot_command_args)
+    check_logs = telegram_bot_photo_process(tg_msg, "force" in bot_command_args)
 
-    if len(plates) == 0:
-        if is_debug or (is_check and message["chat"]["type"] != "supergroup"):
+    if is_check is False:
+        return DEFAULT_RESPONCE
+
+    if len(check_logs) == 0:
+        if is_debug \
+            or message["chat"]["type"] == "private" \
+            or (message["chat"]["type"] == "group" and is_check):
             telegram_send_message(
                 message["chat"]["id"], "На фото номеров не найденно.", message["message_id"]
             )
         return DEFAULT_RESPONCE
 
-    user = db_get_user(message["chat"]["id"], tg_msg["from"]["id"])
-    user_raiting_diff = 0
-
     responce_message = ""
 
-    for plate in list(plates.keys()):
+    user_raiting_diff = 0
+    user_id = None
+    user_raiting = 0
+    hiden_user_raiting = True
+    for check in check_logs:
 
-        # Делаем запись в базу про чек
-        is_show_reply = message["chat"]["type"] == "private"
-        if is_check:
-            is_show_reply = True
+        user_raiting_diff += check["user_raiting_diff"]['N']
+        user_id = check["user_id"]['N']
+        if check["user_raiting_current"]['N'] > user_raiting:
+            user_raiting = check["user_raiting_current"]['N']
 
-        check_time = time.time()
-        db_put_checks_log(
-            message["chat"]["id"], check_time, plate,
-            message["from"]["id"], message["message_id"], is_show_reply
-        )
-
-        vehicle_raiting = db_get_vehicle_raiting(message["chat"]["id"], plate)
-        if vehicle_raiting['first_check']['N'] == 0:
-            vehicle_raiting['first_check']['N'] = check_time
-
-        # Докинем рейтинга машинке, но не больше чем реальных фоток
-        max_raiting = len(plates[plate]["vehicle"]["show_images"]['L'])
-        if vehicle_raiting["raiting"]['N'] < max_raiting:
-            vehicle_raiting["raiting"]['N'] += 1
-
-        # Запомним старое время последнего чека
-        last_check_time = vehicle_raiting['last_check']['N']
-        vehicle_raiting["last_check"]['N'] = check_time
-        db_put_vehicle_raiting(vehicle_raiting)
-
-        last_check = db_get_checks_log(message["chat"]["id"], last_check_time)
-
-        plate_string = "<code>" + plate + "</code>"
+        plate_string = "<code>" + check["plate"]['S'] + "</code>"
         if is_debug:
-            plate_string += " (" + str(plates[plate]["dscore"]) + ")"
+            plate_string += " (" + str(check["dscore"]['N']) + ")"
 
         # Если номер не чекался до этого или чекался но не показывался
-        if last_check["plate"]['S'] is None:
-            # Небыло еще
-            # Юзер молодец прислал уникальный номер
-            user["raiting"]['N'] += 1
-            user_raiting_diff += 1
-            db_put_user(user)
+        if check["is_show_reply"]["BOOL"] is False:
             responce_message += "Номер " + plate_string + " вижу впервые в этом чате.\n"
-        elif last_check["is_show_reply"]["BOOL"] is False:
-            user_raiting_diff += 1
-            responce_message += "Номер " + plate_string + " вижу впервые в этом чате.\n"
+
+            check["is_show_reply"]["BOOL"] = True
+            db_put_checks_log(check)
+            hiden_user_raiting = False
         else:
             # Было уже
             responce_message += response_accordion(
-                plate_string, last_check["timestamp"]['N']
+                plate_string, check["timestamp"]['N']
             )
 
-    if user_raiting_diff > 0:
+    if user_raiting_diff > 0 and hiden_user_raiting is False:
+        user_raiting = {
+            "user_id": {"N": user_id},
+            "raiting": {"N": user_raiting}
+        }
         responce_message += response_user_raitings(
-            message["chat"]["id"], [user],
+            message["chat"]["id"], [user_raiting],
             {tg_msg["from"]["id"]: tg_msg["from"]["first_name"]},
             {tg_msg["from"]["id"]: user_raiting_diff},
         )
 
-    if is_debug or is_check or message["chat"]["type"] != "supergroup":
-        telegram_send_message(
-            message["chat"]["id"], responce_message, message["message_id"]
-        )
+    telegram_send_message(
+        message["chat"]["id"], responce_message, message["message_id"]
+    )
     return DEFAULT_RESPONCE
 
 
