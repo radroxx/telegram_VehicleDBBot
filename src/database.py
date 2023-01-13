@@ -1,5 +1,5 @@
 """Database methods"""
-import time
+
 from .cache import cache_write, cache_exists
 from .aws import aws_dynamodb
 
@@ -91,11 +91,20 @@ def _db_create_tables():
             AttributeDefinitions = [
                 {"AttributeName": "chat_id", "AttributeType": 'N'},
                 {"AttributeName": "timestamp", "AttributeType": 'N'},
+                {"AttributeName": "plate", "AttributeType": 'S'},
             ],
             KeySchema = [
                 {"AttributeName": "chat_id", "KeyType": "HASH"},
                 {"AttributeName": "timestamp", "KeyType": "RANGE"},
             ],
+            LocalSecondaryIndexes = [{
+                "IndexName": "check_logs_by_plate",
+                "KeySchema": [
+                    {"AttributeName": "chat_id", "KeyType": "HASH"},
+                    {"AttributeName": "plate", "KeyType": "RANGE"}
+                ],
+                "Projection": {"ProjectionType": "ALL"}
+            }],
             ProvisionedThroughput = {"ReadCapacityUnits": 5, "WriteCapacityUnits": 5}
         )
 
@@ -241,43 +250,25 @@ def db_put_vehicle_image(item):
     aws_dynamodb().put_item(TableName = __VEHICLE_IMAGES_TABLE_NAME, Item = item)
 
 
-def db_query_checks_log(chat_id, plate = None, message_id = None, order = "asc", limit = 1):
+def db_query_checks_log(chat_id, plate, order = "asc", limit = 1):
     """Scan table and return ordering check logs"""
 
     scan_index_forward = True
     if order == "desc":
         scan_index_forward = False
 
-    expression = ""
-    name_attr = {
-        "#chat_id": "chat_id",
-        "#timestamp": "timestamp"
-    }
-    value_attr = {
-        ":chat_id": {'N': str(chat_id)},
-        ":timestamp": {'N': str(int(time.time()))}
-    }
-
-    if plate:
-        if len(expression) > 0:
-            expression += " AND "
-        expression += "#plate = :plate"
-        name_attr["#plate"] = "plate"
-        value_attr[":plate"] = {'S': plate}
-
-    if message_id:
-        if len(expression) > 0:
-            expression += " AND "
-        expression += "#message_id = :message_id"
-        name_attr["#message_id"] = "message_id"
-        value_attr[":message_id"] = {'N': str(message_id)}
-
     data = aws_dynamodb().query(
         TableName = __CHECK_LOGS_TABLE_NAME,
-        KeyConditionExpression = "#chat_id = :chat_id and #timestamp < :timestamp",
-        FilterExpression = expression,
-        ExpressionAttributeNames = name_attr,
-        ExpressionAttributeValues = value_attr,
+        IndexName = "check_logs_by_plate",
+        KeyConditionExpression = "#chat_id = :chat_id and #plate = :plate",
+        ExpressionAttributeNames = {
+            "#chat_id": "chat_id",
+            "#plate": "plate"
+        },
+        ExpressionAttributeValues = {
+            ":chat_id": {'N': str(chat_id)},
+            ":plate": {'S': plate}
+        },
         ScanIndexForward = scan_index_forward,
         Limit = limit,
     )
@@ -297,11 +288,6 @@ def db_get_checks_log_first(chat_id, plate):
 def db_get_checks_log_last(chat_id, plate):
     """Get last check log by plate"""
     return db_query_checks_log(chat_id, plate=plate, order="desc", limit=1)
-
-
-def db_get_checks_log_by_message_id(chat_id, message_id):
-    """Find check by message_id"""
-    return db_query_checks_log(chat_id, message_id=message_id, order="desc", limit=1)
 
 
 def db_put_checks_log( # pylint: disable=R0913
