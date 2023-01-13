@@ -343,7 +343,7 @@ def telegram_bot_command_images_handler(message):
     return DEFAULT_RESPONCE
 
 
-def telegram_bot_command_check_photo_handler(message): # pilint: disable=R0912,R0914
+def telegram_bot_command_check_photo_handler(message): # pylint: disable=R0912,R0914
     """Processing photo"""
 
     bot_command, bot_command_args = get_bot_command(message)
