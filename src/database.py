@@ -91,20 +91,11 @@ def _db_create_tables():
             AttributeDefinitions = [
                 {"AttributeName": "chat_id", "AttributeType": 'N'},
                 {"AttributeName": "timestamp", "AttributeType": 'N'},
-                {"AttributeName": "plate", "AttributeType": 'S'},
             ],
             KeySchema = [
                 {"AttributeName": "chat_id", "KeyType": "HASH"},
                 {"AttributeName": "timestamp", "KeyType": "RANGE"},
             ],
-            LocalSecondaryIndexes = [{
-                "IndexName": "check_logs_by_plate",
-                "KeySchema": [
-                    {"AttributeName": "chat_id", "KeyType": "HASH"},
-                    {"AttributeName": "plate", "KeyType": "RANGE"}
-                ],
-                "Projection": {"ProjectionType": "ALL"}
-            }],
             ProvisionedThroughput = {"ReadCapacityUnits": 5, "WriteCapacityUnits": 5}
         )
 
@@ -169,12 +160,16 @@ def db_get_vehicle_raiting(chat_id, plate):
     item = {
         "chat_id": {'N': chat_id},
         "plate": {'S': plate},
-        "raiting": {'N': 0}
+        "raiting": {'N': 0},
+        "first_check": {'N': 0},
+        "last_check": {'N': 0},
     }
     if "Item" in items:
         item = items["Item"]
     item["chat_id"]['N'] = int(item["chat_id"]['N'])
     item["raiting"]['N'] = int(item["raiting"]['N'])
+    item["first_check"]['N'] = float(item["first_check"]['N'])
+    item["last_check"]['N'] = float(item["last_check"]['N'])
     return item
 
 
@@ -182,6 +177,8 @@ def db_put_vehicle_raiting(item):
     """Put user item to db"""
     item["chat_id"]['N'] = str(item["chat_id"]['N'])
     item["raiting"]['N'] = str(item["raiting"]['N'])
+    item["first_check"]['N'] = str(item["first_check"]['N'])
+    item["last_check"]['N'] = str(item["last_check"]['N'])
 
     aws_dynamodb().put_item(TableName = __VEHICLE_RATING_TABLE_NAME, Item = item)
 
@@ -250,44 +247,29 @@ def db_put_vehicle_image(item):
     aws_dynamodb().put_item(TableName = __VEHICLE_IMAGES_TABLE_NAME, Item = item)
 
 
-def db_query_checks_log(chat_id, plate, order = "asc", limit = 1):
+def db_get_checks_log(chat_id, timestamp):
     """Scan table and return ordering check logs"""
 
-    scan_index_forward = True
-    if order == "desc":
-        scan_index_forward = False
-
-    data = aws_dynamodb().query(
+    items = aws_dynamodb().get_item(
         TableName = __CHECK_LOGS_TABLE_NAME,
-        IndexName = "check_logs_by_plate",
-        KeyConditionExpression = "#chat_id = :chat_id and #plate = :plate",
-        ExpressionAttributeNames = {
-            "#chat_id": "chat_id",
-            "#plate": "plate"
-        },
-        ExpressionAttributeValues = {
-            ":chat_id": {'N': str(chat_id)},
-            ":plate": {'S': plate}
-        },
-        ScanIndexForward = scan_index_forward,
-        Limit = limit,
+        Key = {"chat_id": {'N': str(chat_id)}, "timestamp": {'N': str(timestamp)}},
     )
-    for item in data["Items"]:
-        item["chat_id"]['N'] = int(item["chat_id"]['N'])
-        item["user_id"]['N'] = int(item["user_id"]['N'])
-        item["timestamp"]['N'] = float(item["timestamp"]['N'])
-        item["message_id"]['N'] = int(item["message_id"]['N'])
-    return data["Items"]
+    item = {
+        "chat_id": {'N': chat_id},
+        "timestamp": {'N': timestamp},
+        "user_id": {'N': 0},
+        "message_id": {'N': 0},
+        "plate": {'S': None}
+    }
 
+    if "Item" in items:
+        item = items["Item"]
 
-def db_get_checks_log_first(chat_id, plate):
-    """Get first check log by plate"""
-    return db_query_checks_log(chat_id, plate=plate, order="asc", limit=1)
-
-
-def db_get_checks_log_last(chat_id, plate):
-    """Get last check log by plate"""
-    return db_query_checks_log(chat_id, plate=plate, order="desc", limit=1)
+    item["chat_id"]['N'] = int(item["chat_id"]['N'])
+    item["user_id"]['N'] = int(item["user_id"]['N'])
+    item["timestamp"]['N'] = float(item["timestamp"]['N'])
+    item["message_id"]['N'] = int(item["message_id"]['N'])
+    return item
 
 
 def db_put_checks_log( # pylint: disable=R0913
