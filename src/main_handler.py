@@ -150,11 +150,11 @@ def response_accordion(plate, last_check):
 
     if last_check_ago == 0:
         return \
-            f"Эх ты голова дырявая, 24 часа еще не прошло, а ты уже забыл что {plate} скидывали.\n"
+            f"Этому баяну {plate} даже 24 часов еще нет.\n"
     if last_check_ago == 1:
-        return f"Кажеться я уже видел вчера {plate} в этом чате.\n"
+        return f"Я уже видел вчера {plate} в этом чате.\n"
 
-    return f"Кажеться я уже видел {plate} в этом чате {last_check_ago} дней тому.\n"
+    return f"Я уже видел {plate} в этом чате {last_check_ago} дней тому.\n"
 
 
 def response_vehicle_raitings(vehicle_raitings):
@@ -381,6 +381,8 @@ def telegram_bot_photo_process(message, force = False):
             user["raiting"]['N'] += 1
 
         check_time = time.time()
+        check_time = message["date"] + (check_time - int(check_time))
+
         if vehicle_raiting['first_check']['N'] == 0:
             vehicle_raiting['first_check']['N'] = check_time
 
