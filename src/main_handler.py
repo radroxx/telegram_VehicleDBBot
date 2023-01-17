@@ -471,7 +471,7 @@ def telegram_bot_command_check_photo_handler(message): # pylint: disable=R0912
         else:
             # Было уже
             responce_message += response_accordion(
-                plate_string, check["timestamp"]['N']
+                plate_string, check["prev_timestamp"]['N']
             )
 
     if user_raiting_diff > 0 and hiden_user_raiting is False:
