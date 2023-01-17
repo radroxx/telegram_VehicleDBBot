@@ -92,19 +92,39 @@ def _db_create_tables():
                 {"AttributeName": "chat_id", "AttributeType": 'N'},
                 {"AttributeName": "timestamp", "AttributeType": 'N'},
                 {"AttributeName": "message_id", "AttributeType": 'N'},
+                {"AttributeName": "user_id", "AttributeType": 'N'},
+                {"AttributeName": "plate", "AttributeType": 'S'},
             ],
             KeySchema = [
                 {"AttributeName": "chat_id", "KeyType": "HASH"},
                 {"AttributeName": "timestamp", "KeyType": "RANGE"},
             ],
-            LocalSecondaryIndexes = [{
-                "IndexName": "check_log_message_id",
-                "KeySchema": [
-                    {"AttributeName": "chat_id", "KeyType": "HASH"},
-                    {"AttributeName": "message_id", "KeyType": "RANGE"},
-                ],
-                "Projection": {"ProjectionType": "ALL"}
-            }],
+            LocalSecondaryIndexes = [
+                {
+                    "IndexName": "check_log_message_id",
+                    "KeySchema": [
+                        {"AttributeName": "chat_id", "KeyType": "HASH"},
+                        {"AttributeName": "message_id", "KeyType": "RANGE"},
+                    ],
+                    "Projection": {"ProjectionType": "ALL"}
+                },
+                {
+                    "IndexName": "check_log_user_id",
+                    "KeySchema": [
+                        {"AttributeName": "chat_id", "KeyType": "HASH"},
+                        {"AttributeName": "user_id", "KeyType": "RANGE"},
+                    ],
+                    "Projection": {"ProjectionType": "ALL"}
+                },
+                {
+                    "IndexName": "check_log_plate",
+                    "KeySchema": [
+                        {"AttributeName": "chat_id", "KeyType": "HASH"},
+                        {"AttributeName": "plate", "KeyType": "RANGE"},
+                    ],
+                    "Projection": {"ProjectionType": "ALL"}
+                }
+            ],
             ProvisionedThroughput = {"ReadCapacityUnits": 5, "WriteCapacityUnits": 5}
         )
 
