@@ -2,6 +2,7 @@
 import time
 import json
 import traceback
+from datetime import datetime
 from .cache import cache_init
 from .platerecognizer import platerecognizer_plate_reader
 from .telegram import (
@@ -26,6 +27,7 @@ from .database import (
     db_top_users,
     db_top_vehicles,
     db_seach_plate,
+    db_get_checks_log,
 )
 
 
@@ -344,6 +346,55 @@ def telegram_bot_command_images_handler(message):
     return DEFAULT_RESPONCE
 
 
+def telegram_bot_command_history(message):
+    """Show check history"""
+    _, bot_command_args = get_bot_command(message)
+
+    if len(bot_command_args) == 0:
+        if message["chat"]["type"] != "supergroup":
+            telegram_send_message(
+                message["chat"]["id"], "Укажите номер авто.", message["message_id"]
+            )
+        return DEFAULT_RESPONCE
+
+    plate = " ".join(bot_command_args).upper().strip(" ")
+    vehicle = db_get_vehicle(plate)
+
+    # Авто скрыто
+    if vehicle["is_hiden"]["BOOL"] is True:
+        if message["chat"]["type"] != "supergroup":
+            telegram_send_message(
+                message["chat"]["id"],
+                "Барин нежелает демонстрировать свое авто.",
+                message["message_id"]
+            )
+        return DEFAULT_RESPONCE
+
+    vehicle_raiting = db_get_vehicle_raiting(message["chat"]["id"], plate)
+
+    text = ""
+    prev_timestamp = vehicle_raiting["last_check"]["N"]
+    for _ in range(0, 100):
+        vehicle_history = db_get_checks_log(message["chat"]["id"], prev_timestamp)
+
+        user_id = vehicle_history["user_id"]['N']
+        user_name = telegram_get_chat_member_first_name(message["chat"]["id"], user_id)
+
+        message_id = vehicle_history["message_id"]['N']
+        unsig_chat_id = str(message["chat"]["id"])[4:]
+        msg_dt = datetime.fromtimestamp(vehicle_history["timestamp"]['N']).strftime('%y-%m-%d')
+        text += f"🕐 {msg_dt} - 👤 <a href=\"tg://user?id={user_id}\">{user_name}</a> - "
+        text += f"<a href=\"https://t.me/c/{unsig_chat_id}/{message_id}\">go to msg</a>\n"
+
+        prev_timestamp = vehicle_history["prev_timestamp"]['N']
+        if prev_timestamp == 0:
+            break
+
+    telegram_send_message(message["chat"]["id"], text, message["message_id"])
+
+    return DEFAULT_RESPONCE
+
+
 def telegram_bot_photo_process(message, force = False):
     """Processing photo"""
 
@@ -520,7 +571,8 @@ def handler(event, context):
             "topuser": telegrma_bot_command_top_user_handler,
             "search": telegram_bot_command_search_handler,
             "images": telegram_bot_command_images_handler,
-            "check": telegram_bot_command_check_photo_handler
+            "check": telegram_bot_command_check_photo_handler,
+            "history": telegram_bot_command_history
         }
 
         if bot_command in command_handlers:
@@ -530,7 +582,8 @@ def handler(event, context):
         if "photo" in message:
             return telegram_bot_command_check_photo_handler(message)
 
-    except Exception: # pylint: disable=W0703
+    except Exception as ex: # pylint: disable=W0703
+        print(ex)
         if message is not None \
             and message.get("chat", {}).get("type", "supergroup") != "supergroup":
             responce_message = "Упс, что-то пошло не так :("
