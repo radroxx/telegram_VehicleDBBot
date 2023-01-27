@@ -548,7 +548,7 @@ def telegram_bot_command_check_photo_handler(message): # pylint: disable=R0912,R
             {tg_msg["from"]["id"]: user_raiting_diff},
         )
 
-    if vehicle_max_raiting > 2:
+    if vehicle_max_raiting > 2 and vehicle_max_raiting <= 10:
         responce_message = get_slogan() + "\n" + responce_message
     if vehicle_max_raiting > 10:
         responce_message = get_fucking_advice() + "\n" + responce_message
