@@ -5,6 +5,7 @@ import traceback
 from datetime import datetime
 from .cache import cache_init
 from .platerecognizer import platerecognizer_plate_reader
+from .answer import get_slogan, get_fucking_advice
 from .telegram import (
     telegram_send_message,
     telegram_get_file_url,
@@ -29,6 +30,7 @@ from .database import (
     db_seach_plate,
     db_get_checks_log,
 )
+
 
 
 DEFAULT_RESPONCE = {"statusCode": 200, "body": "True"}
@@ -146,17 +148,17 @@ def detect_plates_in_image(message, force = False): # pylint: disable=R0912
     return plates
 
 
-def response_accordion(plate, last_check):
+def response_accordion(plate, last_check, count):
     """Generates a response if plate has already been"""
     last_check_ago = int((time.time() - float(last_check))/86400)
 
     if last_check_ago == 0:
         return \
-            f"Этому баяну {plate} даже 24 часов еще нет.\n"
+            f"{plate} свежий баян, {count} фото\n"
     if last_check_ago == 1:
-        return f"Я уже видел вчера {plate} в этом чате.\n"
+        return f"{plate} вчерашний баян, {count} фото\n"
 
-    return f"Я уже видел {plate} в этом чате {last_check_ago} дней тому.\n"
+    return f"{plate} выдержаный баян {last_check_ago} дней, {count} фото\n"
 
 
 def response_vehicle_raitings(vehicle_raitings):
@@ -204,7 +206,7 @@ def telegram_bot_command_version_handler(message):
     """version handler"""
     if message["chat"]["type"] == "supergroup":
         return DEFAULT_RESPONCE
-    telegram_send_message(message["chat"]["id"], "0.0.4", message["message_id"])
+    telegram_send_message(message["chat"]["id"], "0.0.5", message["message_id"])
     return DEFAULT_RESPONCE
 
 
@@ -443,7 +445,10 @@ def telegram_bot_photo_process(message, force = False):
             message["from"]["id"], user["raiting"]['N'] - user_old_raiting,
             user["raiting"]['N'], vehicle_raiting['first_check']['N'] != check_time
         )
-        check_logs.append(item)
+        check_logs.append({
+            "check_logs": item,
+            "vehicle_raiting": vehicle_raiting
+        })
 
         vehicle_raiting["last_check"]['N'] = check_time
         db_put_vehicle_raiting(vehicle_raiting)
@@ -501,28 +506,37 @@ def telegram_bot_command_check_photo_handler(message): # pylint: disable=R0912
     user_id = None
     user_raiting = 0
     hiden_user_raiting = True
+    vehicle_max_raiting = -1
     for check in check_logs:
 
-        user_raiting_diff += check["user_raiting_diff"]['N']
-        user_id = check["user_id"]['N']
-        if check["user_raiting_current"]['N'] > user_raiting:
-            user_raiting = check["user_raiting_current"]['N']
+        user_raiting_diff += check["check_logs"]["user_raiting_diff"]['N']
+        user_id = check["check_logs"]["user_id"]['N']
+        if check["check_logs"]["user_raiting_current"]['N'] > user_raiting:
+            user_raiting = check["check_logs"]["user_raiting_current"]['N']
 
-        plate_string = "<code>" + check["plate"]['S'] + "</code>"
+        plate_string = "<code>" + check["check_logs"]["plate"]['S'] + "</code>"
         if is_debug:
-            plate_string += " (" + str(check["dscore"]['N']) + ")"
+            plate_string += " (" + str(check["check_logs"]["dscore"]['N']) + ")"
 
         # Если номер не чекался до этого или чекался но не показывался
-        if check["is_show_reply"]["BOOL"] is False:
+        if check["check_logs"]["is_show_reply"]["BOOL"] is False:
             responce_message += "Номер " + plate_string + " вижу впервые в этом чате.\n"
 
-            check["is_show_reply"]["BOOL"] = True
-            db_put_checks_log(check)
+            check["check_logs"]["is_show_reply"]["BOOL"] = True
+            db_put_checks_log(check["check_logs"])
             hiden_user_raiting = False
         else:
+            if int(check["vehicle_raiting"]["raiting"]['N']) > vehicle_max_raiting:
+                vehicle_max_raiting = int(check["vehicle_raiting"]["raiting"]['N'])
+
+            if int(check["check_logs"]["prev_timestamp"]['N']) == 0:
+                check["check_logs"]["prev_timestamp"]['N'] \
+                    = int(check["check_logs"]["timestamp"]['N'])
             # Было уже
             responce_message += response_accordion(
-                plate_string, check["prev_timestamp"]['N']
+                plate_string,
+                check["check_logs"]["prev_timestamp"]['N'],
+                int(check["vehicle_raiting"]["raiting"]['N'])
             )
 
     if user_raiting_diff > 0 and hiden_user_raiting is False:
@@ -535,6 +549,11 @@ def telegram_bot_command_check_photo_handler(message): # pylint: disable=R0912
             {tg_msg["from"]["id"]: tg_msg["from"]["first_name"]},
             {tg_msg["from"]["id"]: user_raiting_diff},
         )
+
+    if vehicle_max_raiting > 2:
+        responce_message = get_slogan() + "\n" + responce_message
+    if vehicle_max_raiting > 10:
+        responce_message = get_fucking_advice() + "\n" + responce_message
 
     telegram_send_message(
         message["chat"]["id"], responce_message, message["message_id"]
