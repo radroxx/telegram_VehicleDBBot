@@ -1,7 +1,7 @@
 """Answers list"""
 import random
 
-LOZUNG = [
+SLOGAN = [
     """Сегодня в клубе Гараж несравненный DJ Баян""",
     """Наш Баян - правильный Баян!""",
     """ООО "Аояма-Баян" - рытьё котлованов, ям и окопов.""",
@@ -275,7 +275,8 @@ LOZUNG = [
     """Я - бог. Я - идол. Я - Баян.""",
 ]
 
-SOVET = [
+
+FUCKING_ADVICE = [
     """Альцгеймер - это блять не родственник!""",
     """Анализируй блять неудачи!""",
     """Боишься, блять - не делай!""",
@@ -399,13 +400,11 @@ SOVET = [
 ]
 
 
-def get_lozung():
+def get_slogan():
     """Get lozung"""
-    i = random.randint(0, len(LOZUNG))
-    return LOZUNG[i]
+    return SLOGAN[random.randint(0, len(SLOGAN))]
 
 
-def get_sovet():
+def get_fucking_advice():
     """Get sovet"""
-    i = random.randint(0, len(SOVET))
-    return SOVET[i]
+    return FUCKING_ADVICE[random.randint(0, len(FUCKING_ADVICE))]
