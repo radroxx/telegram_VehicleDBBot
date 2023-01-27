@@ -445,10 +445,7 @@ def telegram_bot_photo_process(message, force = False):
             message["from"]["id"], user["raiting"]['N'] - user_old_raiting,
             user["raiting"]['N'], vehicle_raiting['first_check']['N'] != check_time
         )
-        check_logs.append({
-            "check_logs": item,
-            "vehicle_raiting": vehicle_raiting
-        })
+        check_logs.append(item)
 
         vehicle_raiting["last_check"]['N'] = check_time
         db_put_vehicle_raiting(vehicle_raiting)
@@ -457,7 +454,7 @@ def telegram_bot_photo_process(message, force = False):
     return check_logs
 
 
-def telegram_bot_command_check_photo_handler(message): # pylint: disable=R0912
+def telegram_bot_command_check_photo_handler(message): # pylint: disable=R0912,R0914
     """Processing photo"""
 
     bot_command, bot_command_args = get_bot_command(message)
@@ -509,34 +506,35 @@ def telegram_bot_command_check_photo_handler(message): # pylint: disable=R0912
     vehicle_max_raiting = -1
     for check in check_logs:
 
-        user_raiting_diff += check["check_logs"]["user_raiting_diff"]['N']
-        user_id = check["check_logs"]["user_id"]['N']
-        if check["check_logs"]["user_raiting_current"]['N'] > user_raiting:
-            user_raiting = check["check_logs"]["user_raiting_current"]['N']
+        user_raiting_diff += check["user_raiting_diff"]['N']
+        user_id = check["user_id"]['N']
+        if check["user_raiting_current"]['N'] > user_raiting:
+            user_raiting = check["user_raiting_current"]['N']
 
-        plate_string = "<code>" + check["check_logs"]["plate"]['S'] + "</code>"
+        plate_string = "<code>" + check["plate"]['S'] + "</code>"
         if is_debug:
-            plate_string += " (" + str(check["check_logs"]["dscore"]['N']) + ")"
+            plate_string += " (" + str(check["dscore"]['N']) + ")"
 
         # Если номер не чекался до этого или чекался но не показывался
-        if check["check_logs"]["is_show_reply"]["BOOL"] is False:
+        if check["is_show_reply"]["BOOL"] is False:
             responce_message += "Номер " + plate_string + " вижу впервые в этом чате.\n"
 
-            check["check_logs"]["is_show_reply"]["BOOL"] = True
-            db_put_checks_log(check["check_logs"])
+            check["is_show_reply"]["BOOL"] = True
+            db_put_checks_log(check)
             hiden_user_raiting = False
         else:
-            if int(check["vehicle_raiting"]["raiting"]['N']) > vehicle_max_raiting:
-                vehicle_max_raiting = int(check["vehicle_raiting"]["raiting"]['N'])
+            vehicle_raiting = db_get_vehicle_raiting(message["chat"]["id"], check["plate"]['S'])
+            if vehicle_raiting["raiting"]['N'] > vehicle_max_raiting:
+                vehicle_max_raiting = vehicle_raiting["raiting"]['N']
 
-            if int(check["check_logs"]["prev_timestamp"]['N']) == 0:
-                check["check_logs"]["prev_timestamp"]['N'] \
-                    = int(check["check_logs"]["timestamp"]['N'])
+            if int(check["prev_timestamp"]['N']) == 0:
+                check["prev_timestamp"]['N'] \
+                    = int(check["timestamp"]['N'])
             # Было уже
             responce_message += response_accordion(
                 plate_string,
-                check["check_logs"]["prev_timestamp"]['N'],
-                int(check["vehicle_raiting"]["raiting"]['N'])
+                check["prev_timestamp"]['N'],
+                vehicle_raiting["raiting"]['N']
             )
 
     if user_raiting_diff > 0 and hiden_user_raiting is False:
