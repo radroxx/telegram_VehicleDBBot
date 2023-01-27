@@ -528,13 +528,14 @@ def telegram_bot_command_check_photo_handler(message): # pylint: disable=R0912
         else:
             if int(check["vehicle_raiting"]["raiting"]['N']) > vehicle_max_raiting:
                 vehicle_max_raiting = int(check["vehicle_raiting"]["raiting"]['N'])
-            prev_timestamp = int(check["check_logs"]["prev_timestamp"]['N'])
-            if prev_timestamp == 0:
-                prev_timestamp = int(check["check_logs"]["timestamp"]['N'])
+
+            if int(check["check_logs"]["prev_timestamp"]['N']) == 0:
+                check["check_logs"]["prev_timestamp"]['N'] \
+                    = int(check["check_logs"]["timestamp"]['N'])
             # Было уже
             responce_message += response_accordion(
                 plate_string,
-                prev_timestamp,
+                check["check_logs"]["prev_timestamp"]['N'],
                 int(check["vehicle_raiting"]["raiting"]['N'])
             )
 
