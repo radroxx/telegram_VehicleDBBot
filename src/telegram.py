@@ -40,8 +40,12 @@ def telegram_send_photo(chat_id, photos, reply_to_message_id = None):
         media = []
         for photo in photos:
             media.append({"type": "photo", "media": photo})
-        fields["media"] = json.dumps(media)
+            if len(media) > 9:
+                fields["media"] = json.dumps(media)
+                _telegram_api("sendMediaGroup", chat_id, fields, reply_to_message_id)
+                media = []
 
+        fields["media"] = json.dumps(media)
         return _telegram_api("sendMediaGroup", chat_id, fields, reply_to_message_id)
 
     fields["photo"] = photos
