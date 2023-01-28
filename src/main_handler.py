@@ -527,9 +527,9 @@ def telegram_bot_command_check_photo_handler(message): # pylint: disable=R0912,R
             if vehicle_raiting["raiting"]['N'] > vehicle_max_raiting:
                 vehicle_max_raiting = vehicle_raiting["raiting"]['N']
 
-            if int(check["prev_timestamp"]['N']) == 0:
+            if float(check["prev_timestamp"]['N']) == 0:
                 check["prev_timestamp"]['N'] \
-                    = int(check["timestamp"]['N'])
+                    = float(check["timestamp"]['N'])
             # Было уже
             responce_message += response_accordion(
                 plate_string,
