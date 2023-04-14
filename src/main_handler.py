@@ -1,6 +1,7 @@
 """Main handler"""
 import time
 import json
+import re
 import traceback
 from datetime import datetime
 from .cache import cache_init
@@ -73,6 +74,19 @@ def get_bot_command(message):
             bot_command_args = bot_command_args_string.split(' ')
 
     return bot_command, bot_command_args
+
+
+def is_blacklist_plate(plate):
+    rules = [
+        "\[LT\] [A-Z]{3}\d{3}",
+        "\[LV\] [A-Z]{3}\d{3}"
+        "\[N[OL]\] [A-Z0-9]{6}",
+        "\[[DB]E\] [A-Z0-9]{6,}"
+    ]
+    for rule in rules:
+        if re.search(rule, plate):
+            return True
+    return False
 
 
 def detect_plates_in_image(message, force = False): # pylint: disable=R0912
@@ -418,6 +432,9 @@ def telegram_bot_photo_process(message, force = False):
     user = db_get_user(message["chat"]["id"], message["from"]["id"])
 
     for plate in list(plates.keys()):
+
+        if is_blacklist_plate(plate):
+            continue
 
         user_old_raiting = user["raiting"]['N']
         vehicle_raiting = db_get_vehicle_raiting(message["chat"]["id"], plate)
