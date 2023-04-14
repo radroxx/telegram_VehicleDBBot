@@ -77,11 +77,12 @@ def get_bot_command(message):
 
 
 def is_blacklist_plate(plate):
+    """Detect plate in rules"""
     rules = [
-        "\[LT\] [A-Z]{3}\d{3}",
-        "\[LV\] [A-Z]{3}\d{3}"
-        "\[N[OL]\] [A-Z0-9]{6}",
-        "\[[DB]E\] [A-Z0-9]{6,}"
+        r"\[LT\] [A-Z]{3}\d{3}",
+        r"\[LV\] [A-Z]{3}\d{3}"
+        r"\[N[OL]\] [A-Z0-9]{6}",
+        r"\[[DB]E\] [A-Z0-9]{6,}"
     ]
     for rule in rules:
         if re.search(rule, plate):
@@ -579,7 +580,7 @@ def telegram_bot_command_check_photo_handler(message): # pylint: disable=R0912,R
 def handler(event, context):
     """Handler"""
 
-    is_develop = (__name__.split('.', maxsplit=1)[0] == "develop")
+    is_develop = (__name__.split('.', maxsplit = 1)[0] == "develop") # pylint: disable=C0325
 
     if event is None and context is None:
         return DEFAULT_RESPONCE
