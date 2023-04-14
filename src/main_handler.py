@@ -1,6 +1,7 @@
 """Main handler"""
 import time
 import json
+import re
 import traceback
 from datetime import datetime
 from .cache import cache_init
@@ -73,6 +74,20 @@ def get_bot_command(message):
             bot_command_args = bot_command_args_string.split(' ')
 
     return bot_command, bot_command_args
+
+
+def is_blacklist_plate(plate):
+    """Detect plate in rules"""
+    rules = [
+        r"\[LT\] [A-Z]{3}\d{3}",
+        r"\[LV\] [A-Z]{3}\d{3}"
+        r"\[N[OL]\] [A-Z0-9]{6}",
+        r"\[[DB]E\] [A-Z0-9]{6,}"
+    ]
+    for rule in rules:
+        if re.search(rule, plate):
+            return True
+    return False
 
 
 def detect_plates_in_image(message, force = False): # pylint: disable=R0912
@@ -419,6 +434,9 @@ def telegram_bot_photo_process(message, force = False):
 
     for plate in list(plates.keys()):
 
+        if is_blacklist_plate(plate):
+            continue
+
         user_old_raiting = user["raiting"]['N']
         vehicle_raiting = db_get_vehicle_raiting(message["chat"]["id"], plate)
 
@@ -562,7 +580,7 @@ def telegram_bot_command_check_photo_handler(message): # pylint: disable=R0912,R
 def handler(event, context):
     """Handler"""
 
-    is_develop = (__name__.split('.', maxsplit=1)[0] == "develop")
+    is_develop = (__name__.split('.', maxsplit = 1)[0] == "develop") # pylint: disable=C0325
 
     if event is None and context is None:
         return DEFAULT_RESPONCE
