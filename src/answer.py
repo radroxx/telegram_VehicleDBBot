@@ -402,7 +402,8 @@ FUCKING_ADVICE = [
 
 def get_slogan():
     """Get lozung"""
-    return SLOGAN[random.randint(0, len(SLOGAN))]
+    tmp_list = SLOGAN + FUCKING_ADVICE
+    return tmp_list[random.randint(0, len(tmp_list))]
 
 
 def get_fucking_advice():
