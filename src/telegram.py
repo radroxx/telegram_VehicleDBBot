@@ -78,3 +78,7 @@ def telegram_get_file_sha1(file_url):
             sha1.update(chunc)
 
         return sha1.hexdigest()
+
+
+def telegram_delete_message(chat_id, message_id):
+    return _telegram_api("deleteMessage", chat_id, {"message_id": message_id})
