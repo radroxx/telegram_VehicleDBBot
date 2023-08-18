@@ -11,7 +11,8 @@ from .telegram import (
     telegram_send_message,
     telegram_get_file_url,
     telegram_send_photo,
-    telegram_get_chat_member_first_name
+    telegram_get_chat_member_first_name,
+    telegram_delete_message
 )
 from .database import (
     _db_create_tables,
@@ -82,7 +83,9 @@ def is_blacklist_plate(plate):
         r"\[LT\] [A-Z]{3}\d{3}",
         r"\[LV\] [A-Z]{3}\d{3}"
         r"\[N[OL]\] [A-Z0-9]{6}",
-        r"\[[DB]E\] [A-Z0-9]{6,}"
+        r"\[[DB]E\] [A-Z0-9]{6,}",
+        r"\[AT\].*",
+        r"\[GB\].*"
     ]
     for rule in rules:
         if re.search(rule, plate):
@@ -221,7 +224,7 @@ def telegram_bot_command_version_handler(message):
     """version handler"""
     if message["chat"]["type"] == "supergroup":
         return DEFAULT_RESPONCE
-    telegram_send_message(message["chat"]["id"], "0.0.5", message["message_id"])
+    telegram_send_message(message["chat"]["id"], "0.0.6", message["message_id"])
     return DEFAULT_RESPONCE
 
 
@@ -472,7 +475,7 @@ def telegram_bot_photo_process(message, force = False):
     return check_logs
 
 
-def telegram_bot_command_check_photo_handler(message): # pylint: disable=R0912,R0914
+def telegram_bot_command_check_photo_handler(message): # pylint: disable=R0912,R0914,R0915
     """Processing photo"""
 
     bot_command, bot_command_args = get_bot_command(message)
@@ -571,9 +574,13 @@ def telegram_bot_command_check_photo_handler(message): # pylint: disable=R0912,R
     if vehicle_max_raiting > 10:
         responce_message = get_fucking_advice() + "\n" + responce_message
 
-    telegram_send_message(
-        message["chat"]["id"], responce_message, message["message_id"]
-    )
+    if is_debug:
+        telegram_send_message(
+            message["chat"]["id"], responce_message, message["message_id"]
+        )
+    telegram_delete_message(message["chat"]["id"], message["message_id"])
+    if message != tg_msg:
+        telegram_delete_message(message["chat"]["id"], tg_msg["message_id"])
     return DEFAULT_RESPONCE
 
 
