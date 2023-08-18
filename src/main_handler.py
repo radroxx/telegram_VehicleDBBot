@@ -224,7 +224,7 @@ def telegram_bot_command_version_handler(message):
     """version handler"""
     if message["chat"]["type"] == "supergroup":
         return DEFAULT_RESPONCE
-    telegram_send_message(message["chat"]["id"], "0.0.5", message["message_id"])
+    telegram_send_message(message["chat"]["id"], "0.0.6", message["message_id"])
     return DEFAULT_RESPONCE
 
 
